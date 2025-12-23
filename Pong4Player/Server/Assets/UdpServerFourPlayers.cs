@@ -36,6 +36,7 @@ public class UdpServerFourPlayers : MonoBehaviour
                 string msg = Encoding.UTF8.GetString(data);
                 string key = anyEP.Address + ":" + anyEP.Port;
 
+                // ---------- CONEXÃO ----------
                 if (!clientIds.ContainsKey(key))
                 {
                     if (nextId <= 4)
@@ -43,12 +44,11 @@ public class UdpServerFourPlayers : MonoBehaviour
                         clientIds[key] = nextId++;
                         string assignMsg = "ASSIGN:" + clientIds[key];
                         server.Send(Encoding.UTF8.GetBytes(assignMsg), assignMsg.Length, anyEP);
+
                         Debug.Log($"Novo cliente conectado: {key} => ID {clientIds[key]}");
 
-                        // Informa a todos quantos já entraram
                         Broadcast($"READY:{clientIds.Count}");
 
-                        // Quando todos entram, envia START
                         if (clientIds.Count == 4 && !jogoIniciado)
                         {
                             jogoIniciado = true;
@@ -63,9 +63,18 @@ public class UdpServerFourPlayers : MonoBehaviour
                     }
                 }
 
-                // retransmissão de mensagens comuns
-                if (msg.StartsWith("POS:") || msg.StartsWith("BALL:") || msg.StartsWith("SCORE:"))
+                // ---------- JOGO ----------
+                if (msg.StartsWith("POS:") ||
+                    msg.StartsWith("BALL:") ||
+                    msg.StartsWith("SCORE:"))
                 {
+                    Broadcast(msg);
+                }
+
+                // ---------- CHAT EM TEMPO REAL ----------
+                if (msg.StartsWith("CHAT:"))
+                {
+                    Debug.Log("💬 Chat recebido: " + msg);
                     Broadcast(msg);
                 }
             }
@@ -79,12 +88,17 @@ public class UdpServerFourPlayers : MonoBehaviour
     void Broadcast(string msg)
     {
         byte[] data = Encoding.UTF8.GetBytes(msg);
+
         foreach (var kvp in clientIds)
         {
             try
             {
                 string[] parts = kvp.Key.Split(':');
-                IPEndPoint ep = new IPEndPoint(IPAddress.Parse(parts[0]), int.Parse(parts[1]));
+                IPEndPoint ep = new IPEndPoint(
+                    IPAddress.Parse(parts[0]),
+                    int.Parse(parts[1])
+                );
+
                 server.Send(data, data.Length, ep);
             }
             catch { }
